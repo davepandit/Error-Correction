@@ -1,62 +1,94 @@
 #include <bits/stdc++.h>
 using namespace std;
 
-// Function to calculate the checksum
 string calculateChecksum(string data, int segmentSize) {
     int n = data.length();
-    int sum = 0;
-
-    // Process data in segments of size `segmentSize`
+    unsigned int sum = 0;
+    
+    // Ensure data length is multiple of segment size
+    while (n % segmentSize != 0) {
+        data += "0";
+        n++;
+    }
+    
     for (int i = 0; i < n; i += segmentSize) {
         string segment = data.substr(i, segmentSize);
-        
-        // Convert the binary segment to integer
-        int segmentValue = stoi(segment, nullptr, 2);
+        unsigned int segmentValue = stoul(segment, nullptr, 2);
         sum += segmentValue;
-
-        // If there is a carry, wrap it around
-        if (sum > (1 << segmentSize) - 1) {
-            sum = (sum & ((1 << segmentSize) - 1)) + 1;
+        
+        while (sum >= (1u << segmentSize)) {
+            sum = (sum & ((1u << segmentSize) - 1)) + (sum >> segmentSize);
         }
     }
-
-    // Calculate the 1's complement of the sum
-    sum = ~sum & ((1 << segmentSize) - 1);
+    
+    sum = ((1u << segmentSize) - 1) - sum;
     string checksum = bitset<16>(sum).to_string();
-    return checksum;
+    return checksum.substr(16 - segmentSize);
 }
 
-// Function to verify the checksum at the receiver side
-bool verifyChecksum(string receivedData, string checksum, int segmentSize) {
-    // Append the received checksum to the data
-    string totalData = receivedData + checksum;
-
-    // Calculate the checksum of the total data
-    string calculatedChecksum = calculateChecksum(totalData, segmentSize);
-
-    // A valid checksum will result in "1111111111111111"
-    return calculatedChecksum == string(segmentSize, '1');
+bool verifyChecksum(string receivedData, string receivedChecksum, int segmentSize) {
+    // Combine received data and checksum
+    string totalData = receivedData + receivedChecksum;
+    
+    int n = totalData.length();
+    unsigned int sum = 0;
+    
+    // Process all segments including the checksum
+    for (int i = 0; i < n; i += segmentSize) {
+        string segment = totalData.substr(i, segmentSize);
+        unsigned int segmentValue = stoul(segment, nullptr, 2);
+        sum += segmentValue;
+        
+        while (sum >= (1u << segmentSize)) {
+            sum = (sum & ((1u << segmentSize) - 1)) + (sum >> segmentSize);
+        }
+    }
+    
+    // The sum should be all 1's if no error
+    return sum == ((1u << segmentSize) - 1);
 }
 
 int main() {
     string data, receivedChecksum;
-    int segmentSize = 16; // Segment size of 16 bits
-
-    // Input the message and checksum from the sender
+    int segmentSize = 16;
+    
     cout << "Enter the received binary message: ";
     cin >> data;
-
     cout << "Enter the received checksum: ";
     cin >> receivedChecksum;
-
-    // At Receiver Side: Verify the checksum
+    
+    // Validate input
+    for (char c : data) {
+        if (c != '0' && c != '1') {
+            cout << "Error: Message must be binary (0s and 1s only)" << endl;
+            return 1;
+        }
+    }
+    for (char c : receivedChecksum) {
+        if (c != '0' && c != '1') {
+            cout << "Error: Checksum must be binary (0s and 1s only)" << endl;
+            return 1;
+        }
+    }
+    
+    if (receivedChecksum.length() != segmentSize) {
+        cout << "Error: Checksum must be " << segmentSize << " bits long" << endl;
+        return 1;
+    }
+    
+    // Debug information
+    cout << "\nDebug Information:" << endl;
+    cout << "Message Length: " << data.length() << " bits" << endl;
+    cout << "Checksum Length: " << receivedChecksum.length() << " bits" << endl;
+    
+    // Verify checksum
     bool isValid = verifyChecksum(data, receivedChecksum, segmentSize);
-
+    
     if (isValid) {
         cout << "No error detected. The message is valid." << endl;
     } else {
         cout << "Error detected in the received message." << endl;
     }
-
+    
     return 0;
 }

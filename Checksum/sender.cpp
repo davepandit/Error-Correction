@@ -4,45 +4,58 @@ using namespace std;
 // Function to calculate the checksum
 string calculateChecksum(string data, int segmentSize) {
     int n = data.length();
-    int sum = 0;
-
+    unsigned int sum = 0;
+    
+    // Ensure data length is multiple of segment size
+    while (n % segmentSize != 0) {
+        data += "0";  // Pad with zeros if necessary
+        n++;
+    }
+    
     // Process data in segments of size `segmentSize`
     for (int i = 0; i < n; i += segmentSize) {
         string segment = data.substr(i, segmentSize);
         
         // Convert the binary segment to integer
-        int segmentValue = stoi(segment, nullptr, 2);
+        unsigned int segmentValue = stoul(segment, nullptr, 2);
         sum += segmentValue;
-
-        // If there is a carry, wrap it around
-        if (sum > (1 << segmentSize) - 1) {
-            sum = (sum & ((1 << segmentSize) - 1)) + 1;
+        
+        // Handle carry properly
+        while (sum >= (1u << segmentSize)) {
+            sum = (sum & ((1u << segmentSize) - 1)) + (sum >> segmentSize);
         }
     }
-
+    
     // Calculate the 1's complement of the sum
-    sum = ~sum & ((1 << segmentSize) - 1);
+    sum = ((1u << segmentSize) - 1) - sum;
+    
+    // Convert to binary string of proper length
     string checksum = bitset<16>(sum).to_string();
-    return checksum;
+    return checksum.substr(16 - segmentSize);  // Return only the required bits
 }
 
 int main() {
-    string data, checksum;
-    int segmentSize = 16; // Segment size of 16 bits
-
-    // Input the message from the sender
+    string data;
+    int segmentSize = 16;
+    
     cout << "Enter the binary message to be sent: ";
     cin >> data;
-
+    
+    // Validate input
+    for (char c : data) {
+        if (c != '0' && c != '1') {
+            cout << "Error: Input must be binary (0s and 1s only)" << endl;
+            return 1;
+        }
+    }
+    
     // Calculate checksum
-    checksum = calculateChecksum(data, segmentSize);
-
-    // Output checksum
+    string checksum = calculateChecksum(data, segmentSize);
+    
+    // Output results
     cout << "Calculated Checksum: " << checksum << endl;
-
-    // Simulate sending data (data + checksum)
     cout << "Data to send: " << data << endl;
     cout << "Checksum to send: " << checksum << endl;
-
+    
     return 0;
 }
